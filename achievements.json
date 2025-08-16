@@ -1,0 +1,191 @@
+{
+  "first_workout": {
+    "name": "First Steps",
+    "description": "Complete your first workout",
+    "points": 50,
+    "icon": "🎯",
+    "category": "milestone"
+  },
+  "streak_3": {
+    "name": "Getting Started",
+    "description": "3-day workout streak",
+    "points": 100,
+    "icon": "🔥",
+    "category": "consistency"
+  },
+  "streak_7": {
+    "name": "Week Warrior",
+    "description": "7-day workout streak",
+    "points": 200,
+    "icon": "⚡",
+    "category": "consistency"
+  },
+  "streak_14": {
+    "name": "Fortnight Fighter",
+    "description": "14-day workout streak",
+    "points": 300,
+    "icon": "💪",
+    "category": "consistency"
+  },
+  "streak_30": {
+    "name": "Month Master",
+    "description": "30-day workout streak",
+    "points": 500,
+    "icon": "👑",
+    "category": "consistency"
+  },
+  "streak_60": {
+    "name": "Dedication King",
+    "description": "60-day workout streak",
+    "points": 750,
+    "icon": "🏆",
+    "category": "consistency"
+  },
+  "streak_100": {
+    "name": "Century Club",
+    "description": "100-day workout streak",
+    "points": 1000,
+    "icon": "🌟",
+    "category": "consistency"
+  },
+  "perfect_form": {
+    "name": "Form Master",
+    "description": "Achieve 95%+ form score",
+    "points": 150,
+    "icon": "🎯",
+    "category": "skill"
+  },
+  "calorie_burner": {
+    "name": "Calorie Crusher",
+    "description": "Burn 500+ calories in one session",
+    "points": 300,
+    "icon": "💪",
+    "category": "performance"
+  },
+  "calorie_master": {
+    "name": "Calorie Master",
+    "description": "Burn 1000+ calories in one session",
+    "points": 500,
+    "icon": "🔥",
+    "category": "performance"
+  },
+  "speed_demon": {
+    "name": "Speed Demon",
+    "description": "Complete workout in under 10 minutes",
+    "points": 200,
+    "icon": "🏃",
+    "category": "performance"
+  },
+  "consistency_king": {
+    "name": "Consistency King",
+    "description": "Work out 5+ days in a week",
+    "points": 250,
+    "icon": "👑",
+    "category": "consistency"
+  },
+  "variety_seeker": {
+    "name": "Variety Seeker",
+    "description": "Try all available exercises",
+    "points": 200,
+    "icon": "🎭",
+    "category": "exploration"
+  },
+  "early_bird": {
+    "name": "Early Bird",
+    "description": "Complete 5 workouts before 8 AM",
+    "points": 150,
+    "icon": "🌅",
+    "category": "lifestyle"
+  },
+  "night_owl": {
+    "name": "Night Owl",
+    "description": "Complete 5 workouts after 9 PM",
+    "points": 150,
+    "icon": "🦉",
+    "category": "lifestyle"
+  },
+  "weekend_warrior": {
+    "name": "Weekend Warrior",
+    "description": "Work out on 3 consecutive weekends",
+    "points": 200,
+    "icon": "🏋️",
+    "category": "consistency"
+  },
+  "form_improver": {
+    "name": "Form Improver",
+    "description": "Improve form score by 20% over 5 workouts",
+    "points": 300,
+    "icon": "📈",
+    "category": "skill"
+  },
+  "endurance_builder": {
+    "name": "Endurance Builder",
+    "description": "Complete 3 workouts over 30 minutes each",
+    "points": 250,
+    "icon": "⏱️",
+    "category": "performance"
+  },
+  "strength_builder": {
+    "name": "Strength Builder",
+    "description": "Complete 10 strength-focused workouts",
+    "points": 300,
+    "icon": "💪",
+    "category": "skill"
+  },
+  "cardio_enthusiast": {
+    "name": "Cardio Enthusiast",
+    "description": "Complete 10 cardio-focused workouts",
+    "points": 300,
+    "icon": "❤️",
+    "category": "skill"
+  },
+  "balance_master": {
+    "name": "Balance Master",
+    "description": "Achieve perfect form on balance exercises 5 times",
+    "points": 200,
+    "icon": "⚖️",
+    "category": "skill"
+  },
+  "flexibility_seeker": {
+    "name": "Flexibility Seeker",
+    "description": "Complete 5 flexibility-focused workouts",
+    "points": 200,
+    "icon": "🧘",
+    "category": "skill"
+  },
+  "social_fitness": {
+    "name": "Social Fitness",
+    "description": "Share your progress 5 times",
+    "points": 100,
+    "icon": "📱",
+    "category": "social"
+  },
+  "goal_crusher": {
+    "name": "Goal Crusher",
+    "description": "Meet all weekly goals for 4 consecutive weeks",
+    "points": 500,
+    "icon": "🎯",
+    "category": "achievement"
+  },
+  "comeback_kid": {
+    "name": "Comeback Kid",
+    "description": "Return to working out after a 7+ day break",
+    "points": 100,
+    "icon": "🔄",
+    "category": "motivation"
+  },
+  "weather_warrior": {
+    "name": "Weather Warrior",
+    "description": "Work out in extreme weather conditions",
+    "points": 150,
+    "icon": "🌦️",
+    "category": "lifestyle"
+  },
+  "travel_fitness": {
+    "name": "Travel Fitness",
+    "description": "Complete workouts in 3 different locations",
+    "points": 200,
+    "icon": "✈️",
+    "category": "lifestyle"
+  }
+} 
