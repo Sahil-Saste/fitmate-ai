@@ -1,16 +1,17 @@
 {
-  "username": "Sahil",
+  "username": "Ashish",
   "age": 19,
-  "weight_kg": 55.0,
+  "weight_kg": 67.0,
   "height_cm": 180.03,
-  "fitness_goal": "lose_weight",
-  "experience_level": "beginner",
-  "points": 50,
+  "fitness_goal": "improve_fitness",
+  "experience_level": "intermediate",
+  "points": 200,
   "streak": 0,
-  "last_workout": "2025-08-16T18:24:09.999174",
-  "total_workouts": 2,
+  "last_workout": "2025-08-17T15:32:20.289146",
+  "total_workouts": 17,
   "achievements": [
-    "first_workout"
+    "first_workout",
+    "perfect_form"
   ],
   "created_at": "2024-01-01T00:00:00",
   "preferences": {

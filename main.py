@@ -1,4 +1,4 @@
-from utils import calculate_angle, estimate_calories, form_score, append_log, ensure_dirs
+from utils import calculate_angle, calculate_angle_3d, smooth_angle, estimate_calories, form_score, append_log, ensure_dirs
 import cv2
 import mediapipe as mp
 import pyttsx3
@@ -97,6 +97,10 @@ current_set = 1
 target_sets = 3
 rest_timer = 0
 is_resting = False
+burpee_state = "stand"  # Initialize burpee state machine
+
+# Initialize angle history dictionary for temporal smoothing
+angle_history = {}
 
 # MediaPipe setup
 mp_pose = mp.solutions.pose
@@ -106,13 +110,20 @@ pose = mp_pose.Pose(
 )
 mp_draw = mp.solutions.drawing_utils
 
+
 # Initialize webcam
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
+# Create and configure the OpenCV window early for fast display and focus
+window_name = "AI Fitness Trainer - Pro"
+cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+cv2.setWindowProperty(window_name, cv2.WND_PROP_TOPMOST, 1)
+
 # Load user data
 user_data = load_user_data()
+
 
 print(f"Starting {mode.upper()} workout for {user_data['username']}")
 print(f"Target: {target_sets} sets with rest periods")
@@ -139,20 +150,52 @@ while True:
         def get_point(i):
             return [lm[i].x * w, lm[i].y * h]
 
-        # Joint points
-        l_sh, r_sh = get_point(11), get_point(12)
-        l_el, r_el = get_point(13), get_point(14)
-        l_wr, r_wr = get_point(15), get_point(16)
-        l_hp, r_hp = get_point(23), get_point(24)
-        l_kn, r_kn = get_point(25), get_point(26)
-        l_an, r_an = get_point(27), get_point(28)
-
-        # Calculate angles
-        l_el_ang = calculate_angle(l_sh, l_el, l_wr)
-        r_el_ang = calculate_angle(r_sh, r_el, r_wr)
-        l_kn_ang = calculate_angle(l_hp, l_kn, l_an)
-        r_kn_ang = calculate_angle(r_hp, r_kn, r_an)
-        back_ang = calculate_angle(l_sh, l_hp, l_kn)
+        # Joint points with 3D coordinates and confidence scores
+        def get_point_3d(i):
+            return [lm[i].x * w, lm[i].y * h, lm[i].z * w]  # Scale z by width for proportional depth
+        
+        def get_confidence(i):
+            return lm[i].visibility  # MediaPipe provides visibility as confidence
+        
+        # Get 3D points
+        l_sh, r_sh = get_point_3d(11), get_point_3d(12)
+        l_el, r_el = get_point_3d(13), get_point_3d(14)
+        l_wr, r_wr = get_point_3d(15), get_point_3d(16)
+        l_hp, r_hp = get_point_3d(23), get_point_3d(24)
+        l_kn, r_kn = get_point_3d(25), get_point_3d(26)
+        l_an, r_an = get_point_3d(27), get_point_3d(28)
+        
+        # Get confidence scores
+        l_sh_conf, r_sh_conf = get_confidence(11), get_confidence(12)
+        l_el_conf, r_el_conf = get_confidence(13), get_confidence(14)
+        l_wr_conf, r_wr_conf = get_confidence(15), get_confidence(16)
+        l_hp_conf, r_hp_conf = get_confidence(23), get_confidence(24)
+        l_kn_conf, r_kn_conf = get_confidence(25), get_confidence(26)
+        l_an_conf, r_an_conf = get_confidence(27), get_confidence(28)
+        
+        # Calculate angles with confidence weighting
+        l_el_ang_result = calculate_angle_3d(l_sh, l_el, l_wr, [l_sh_conf, l_el_conf, l_wr_conf])
+        r_el_ang_result = calculate_angle_3d(r_sh, r_el, r_wr, [r_sh_conf, r_el_conf, r_wr_conf])
+        l_kn_ang_result = calculate_angle_3d(l_hp, l_kn, l_an, [l_hp_conf, l_kn_conf, l_an_conf])
+        r_kn_ang_result = calculate_angle_3d(r_hp, r_kn, r_an, [r_hp_conf, r_kn_conf, r_an_conf])
+        back_ang_result = calculate_angle_3d(l_sh, l_hp, l_kn, [l_sh_conf, l_hp_conf, l_kn_conf])
+        
+        # Process angle results (handle tuple returns with confidence)
+        def process_angle_result(result, angle_key):
+            if result is None:
+                return None
+            elif isinstance(result, tuple):
+                angle, conf = result
+                return smooth_angle(angle_key, angle, confidence=conf)
+            else:
+                return smooth_angle(angle_key, result)
+        
+        # Apply temporal smoothing
+        l_el_ang = process_angle_result(l_el_ang_result, 'l_elbow')
+        r_el_ang = process_angle_result(r_el_ang_result, 'r_elbow')
+        l_kn_ang = process_angle_result(l_kn_ang_result, 'l_knee')
+        r_kn_ang = process_angle_result(r_kn_ang_result, 'r_knee')
+        back_ang = process_angle_result(back_ang_result, 'back')
 
         # Initialize feedback
         feedback = ""
@@ -162,104 +205,170 @@ while True:
         # Exercise-specific logic
         if mode == "squat":
             angle = l_kn_ang
-            if angle > 160:
-                if direction == 0:
+            if angle is None:
+                feedback = "Adjusting pose detection..."
+                color = (255, 165, 0)  # Orange
+                current_form_score = 50
+            else:
+                # Improved rep counting with hysteresis for squats
+                if direction == 0 and angle < 90:
+                    direction = 1  # Down position reached
+                elif direction == 1 and angle > 160:
                     counter += 1
-                    direction = 1
+                    direction = 0  # Up position reached, rep counted
                     if not is_resting:
                         engine.say(f"Great! Rep {counter}")
                         engine.runAndWait()
-            elif angle < 90:
-                direction = 0
 
-            # Form checking
-            if angle < 50 or angle > 180:
-                feedback = "Knee angle incorrect!"
-                color = (0, 0, 255)
-                current_form_score = form_score("squat", "bottom_knee", angle)
-            elif back_ang < 145:
-                feedback = "Straighten your back!"
-                color = (0, 0, 255)
-                current_form_score = form_score("squat", "back", back_ang)
-            else:
-                feedback = "Perfect squat form!"
-                current_form_score = 100
+                # Form checking
+                if angle < 50 or angle > 180:
+                    feedback = "Knee angle incorrect!"
+                    color = (0, 0, 255)
+                    current_form_score = form_score("squat", "bottom_knee", angle)
+                elif back_ang is None:
+                    feedback = "Cannot see your back clearly"
+                    color = (255, 165, 0)  # Orange
+                    current_form_score = 70
+                elif back_ang < 145:
+                    feedback = "Straighten your back!"
+                    color = (0, 0, 255)
+                    current_form_score = form_score("squat", "back", back_ang)
+                else:
+                    feedback = "Perfect squat form!"
+                    current_form_score = 100
+
 
         elif mode == "pushup":
             angle = l_el_ang
-            if angle > 160:
-                if direction == 0:
+            if angle is None:
+                feedback = "Adjusting pose detection..."
+                color = (255, 165, 0)  # Orange
+                current_form_score = 50
+            else:
+                # Improved rep counting with hysteresis
+                # Only count a rep when angle goes below 80 (down) and then above 160 (up)
+                if direction == 0 and angle < 80:
+                    direction = 1  # Down position reached
+                elif direction == 1 and angle > 160:
                     counter += 1
-                    direction = 1
+                    direction = 0  # Up position reached, rep counted
                     if not is_resting:
                         engine.say(f"Excellent! Rep {counter}")
                         engine.runAndWait()
-            elif angle < 80:
-                direction = 0
 
-            if angle < 60:
-                feedback = "Too low on push-up!"
-                color = (0, 0, 255)
-                current_form_score = form_score("pushup", "down_elbow", angle)
-            elif angle > 180:
-                feedback = "Don't lock elbows!"
-                color = (0, 0, 255)
-                current_form_score = form_score("pushup", "up_elbow", angle)
-            else:
-                feedback = "Perfect push-up form!"
-                current_form_score = 100
+                if angle < 60:
+                    feedback = "Too low on push-up!"
+                    color = (0, 0, 255)
+                    current_form_score = form_score("pushup", "down_elbow", angle)
+                elif angle > 180:
+                    feedback = "Don't lock elbows!"
+                    color = (0, 0, 255)
+                    current_form_score = form_score("pushup", "up_elbow", angle)
+                elif back_ang is None:
+                    feedback = "Cannot see your back clearly"
+                    color = (255, 165, 0)  # Orange
+                    current_form_score = 70
+                else:
+                    feedback = "Perfect push-up form!"
+                    current_form_score = 100
 
         elif mode == "curl":
             angle = l_el_ang
-            if angle < 60:
-                if direction == 0:
+            if angle is None:
+                feedback = "Adjusting pose detection..."
+                color = (255, 165, 0)  # Orange
+                current_form_score = 50
+            else:
+                # Improved rep counting with hysteresis for curls
+                if direction == 0 and angle < 60:
+                    direction = 1  # Curl up position reached
+                elif direction == 1 and angle > 150:
                     counter += 1
-                    direction = 1
+                    direction = 0  # Curl down position reached, rep counted
                     if not is_resting:
                         engine.say(f"Strong! Rep {counter}")
                         engine.runAndWait()
-            elif angle > 150:
-                direction = 0
 
-            if angle > 160:
-                feedback = "Fully extended arm!"
-                color = (0, 0, 255)
-                current_form_score = form_score("curl", "down_elbow", angle)
-            elif angle < 40:
-                feedback = "Excellent curl!"
-                current_form_score = 100
-            else:
-                feedback = "Keep curling!"
-                current_form_score = form_score("curl", "up_elbow", angle)
+                if angle > 160:
+                    feedback = "Fully extended arm!"
+                    color = (0, 0, 255)
+                    current_form_score = form_score("curl", "down_elbow", angle)
+                elif angle < 40:
+                    feedback = "Excellent curl!"
+                    current_form_score = 100
+                else:
+                    feedback = "Keep curling!"
+                    current_form_score = form_score("curl", "up_elbow", angle)
 
         elif mode == "lunge":
             angle = l_kn_ang
-            if angle < 90:
-                if direction == 0:
+            if angle is None:
+                feedback = "Adjusting pose detection..."
+                color = (255, 165, 0)  # Orange
+                current_form_score = 50
+            else:
+                # Improved rep counting with hysteresis for lunges
+                if direction == 0 and angle < 90:
+                    direction = 1  # Down position reached
+                elif direction == 1 and angle > 150:
                     counter += 1
-                    direction = 1
+                    direction = 0  # Up position reached, rep counted
                     if not is_resting:
                         engine.say(f"Powerful! Rep {counter}")
                         engine.runAndWait()
-            elif angle > 150:
-                direction = 0
 
-            if angle < 60 or angle > 170:
-                feedback = "Incorrect lunge form!"
-                color = (0, 0, 255)
-                current_form_score = form_score("lunge", "bottom_knee", angle)
-            else:
-                feedback = "Nice lunge form!"
-                current_form_score = 100
+                if angle < 60 or angle > 170:
+                    feedback = "Incorrect lunge form!"
+                    color = (0, 0, 255)
+                    current_form_score = form_score("lunge", "bottom_knee", angle)
+                elif back_ang is None:
+                    feedback = "Cannot see your back clearly"
+                    color = (255, 165, 0)  # Orange
+                    current_form_score = 70
+                else:
+                    feedback = "Nice lunge form!"
+                    current_form_score = 100
 
         elif mode == "plank":
             feedback = "Hold steady!"
-            if back_ang < 145 or back_ang > 165:
+            if back_ang is None:
+                feedback = "Cannot see your back clearly"
+                color = (255, 165, 0)  # Orange
+                current_form_score = 70
+            elif back_ang < 145 or back_ang > 165:
                 feedback = "Keep your back straight!"
                 color = (0, 0, 255)
                 current_form_score = form_score("plank", "back", back_ang)
             else:
                 current_form_score = 100
+                
+        elif mode == "burpee":
+            # Burpee has multiple stages: stand > squat > plank > squat > jump
+            if l_kn_ang is None or r_kn_ang is None:
+                knee_angle = None
+                feedback = "Adjusting pose detection..."
+                color = (255, 165, 0)  # Orange
+                current_form_score = 50
+            else:
+                knee_angle = min(l_kn_ang, r_kn_ang)
+                
+                # State machine for burpee
+                if knee_angle is not None and back_ang is not None:
+                    if burpee_state == "stand" and knee_angle < 100:
+                        burpee_state = "squat"
+                    elif burpee_state == "squat" and back_ang < 140:  # Transitioned to plank
+                        burpee_state = "plank"
+                    elif burpee_state == "plank" and back_ang > 160 and knee_angle < 100:  # Back to squat
+                        burpee_state = "squat_up"
+                    elif burpee_state == "squat_up" and knee_angle > 170:  # Standing/jumping
+                        burpee_state = "stand"
+                        counter += 1
+                        if not is_resting:
+                            engine.say(f"Burpee {counter} complete!")
+                            engine.runAndWait()
+                
+                feedback = f"Burpee state: {burpee_state}"
+                current_form_score = 100  # Simplified scoring for burpees
 
         # Add form score to tracking
         form_scores.append(current_form_score)
@@ -339,7 +448,7 @@ while True:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
     # Display frame
-    cv2.imshow("AI Fitness Trainer - Pro", frame)
+    cv2.imshow(window_name, frame)
     
     # Check for quit
     if cv2.waitKey(1) & 0xFF == ord('q'):

@@ -6,6 +6,9 @@ import json
 from datetime import datetime, timedelta
 
 # ---------- Geometry ----------
+# Dictionary to store angle history for temporal smoothing
+angle_history = {}
+
 def calculate_angle(a, b, c):
     """Angle at point b (degrees) between points a and c. Points are [x, y]."""
     angle = math.degrees(
@@ -15,6 +18,116 @@ def calculate_angle(a, b, c):
     if angle > 180:
         angle = 360 - angle
     return angle
+
+def calculate_angle_3d(a, b, c, confidences=None):
+    """Calculate angle at point b (degrees) between points a and c in 3D space.
+    Points are [x, y, z].
+    
+    Args:
+        a, b, c: 3D points as [x, y, z]
+        confidences: Optional list of confidence values [conf_a, conf_b, conf_c]
+                    from MediaPipe for each landmark
+    """
+    # Create vectors from point b to points a and c
+    ba = [a[0]-b[0], a[1]-b[1], a[2]-b[2]]
+    bc = [c[0]-b[0], c[1]-b[1], c[2]-b[2]]
+    
+    # Calculate dot product
+    dot_product = ba[0]*bc[0] + ba[1]*bc[1] + ba[2]*bc[2]
+    
+    # Calculate magnitudes
+    magnitude_ba = math.sqrt(ba[0]**2 + ba[1]**2 + ba[2]**2)
+    magnitude_bc = math.sqrt(bc[0]**2 + bc[1]**2 + bc[2]**2)
+    
+    # Calculate angle using dot product formula
+    # cos(θ) = (a·b)/(|a|·|b|)
+    cosine = dot_product / (magnitude_ba * magnitude_bc)
+    
+    # Handle floating point errors that might put cosine outside [-1, 1]
+    cosine = max(-1.0, min(1.0, cosine))
+    
+    # Calculate angle in degrees
+    angle = math.degrees(math.acos(cosine))
+    
+    # Apply confidence weighting if provided
+    if confidences and len(confidences) == 3:
+        # Calculate overall confidence for this angle
+        # If any landmark has very low confidence, the overall confidence will be low
+        min_confidence = min(confidences)
+        
+        # If confidence is too low, return None or previous value
+        if min_confidence < 0.2:  # Threshold for unreliable detection
+            return None
+            
+        # Adjust angle based on confidence
+        # Higher confidence = more weight to current measurement
+        # Lower confidence = more smoothing/less weight to current measurement
+        confidence_factor = sum(confidences) / 3  # Average confidence
+        
+        # Return confidence along with angle for use in smoothing
+        return angle, confidence_factor
+    
+    return angle
+
+def smooth_angle(angle_key, current_angle, window_size=5, weight_recent=0.7, confidence=None):
+    """Apply temporal smoothing to angle measurements to reduce jitter.
+    
+    Args:
+        angle_key: Unique identifier for this angle (e.g., 'left_elbow')
+        current_angle: The current angle measurement
+        window_size: Number of frames to consider for smoothing
+        weight_recent: Weight given to more recent measurements (0-1)
+        confidence: Optional confidence score (0-1) for current measurement
+        
+    Returns:
+        Smoothed angle value
+    """
+    global angle_history
+    
+    # Handle None values (low confidence measurements)
+    if current_angle is None:
+        # If we have history, return the most recent valid angle
+        if angle_key in angle_history and angle_history[angle_key]:
+            # Return the most recent angle from history
+            return angle_history[angle_key][-1][0]  # [0] is the angle, [1] is confidence
+        else:
+            # No history and current is None, return a default
+            return 0.0
+    
+    # Initialize history for this angle if it doesn't exist
+    if angle_key not in angle_history:
+        angle_history[angle_key] = []
+    
+    # Store both angle and confidence
+    if confidence is None:
+        confidence = 1.0  # Default confidence if not provided
+    
+    # Add current angle and confidence to history
+    angle_history[angle_key].append((current_angle, confidence))
+    
+    # Keep only the most recent measurements based on window size
+    if len(angle_history[angle_key]) > window_size:
+        angle_history[angle_key] = angle_history[angle_key][-window_size:]
+    
+    # Apply weighted average (more weight to recent and high-confidence measurements)
+    if len(angle_history[angle_key]) == 1:
+        return current_angle
+    
+    total_weight = 0
+    weighted_sum = 0
+    
+    for i, (angle, conf) in enumerate(angle_history[angle_key]):
+        # Calculate weight based on recency and confidence
+        recency_factor = i / (len(angle_history[angle_key]) - 1)
+        recency_weight = 1 + recency_factor * (weight_recent - 1)
+        
+        # Combine recency weight with confidence
+        combined_weight = recency_weight * conf
+        
+        weighted_sum += angle * combined_weight
+        total_weight += combined_weight
+    
+    return weighted_sum / total_weight
 
 # ---------- Visuals ----------
 def draw_progress_bar(frame, progress):

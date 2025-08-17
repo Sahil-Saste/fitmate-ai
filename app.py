@@ -1,16 +1,12 @@
 import os
-import subprocess
 import json
-import random
 from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
-import altair as alt
-from reportlab.pdfgen import canvas
-import plotly.express as px
-import plotly.graph_objects as go
-# from streamlit_autorefresh import st_autorefresh
+import subprocess
 import sys
+import plotly.express as px
+# from streamlit_autorefresh import st_autorefresh
 
 # Constants
 LOG_PATH = "logs/sessions.csv"
@@ -334,6 +330,13 @@ elif st.session_state.current_section == "workout":
             format_func=lambda x: exercise_options[x],
             key="exercise_selector"
         )
+        
+        # Import the tutorial module
+        from tutorials import show_tutorial
+        
+        # Show tutorial for the selected exercise
+        with st.expander("View Exercise Tutorial", expanded=False):
+            show_tutorial(selected_exercise)
         
         if st.button("🚀 Start Workout", type="primary", key="start_workout"):
             st.session_state.current_exercise = selected_exercise
