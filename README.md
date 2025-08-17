@@ -52,7 +52,7 @@ Your Personal AI-Powered Fitness Companion with Computer Vision, Real-time Feedb
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd AI-Fitness-Trainer
+   cd fitmate-ai
    ```
 
 2. **Create virtual environment**
